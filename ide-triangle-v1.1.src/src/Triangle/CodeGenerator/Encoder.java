@@ -1144,15 +1144,18 @@ public final class Encoder implements Visitor {
         Frame frame = (Frame) o;
         //visit identifier
        
-        //get size from expression visit 
-        int extraSize = (Integer) aThis.E.visit(this, frame);
-         aThis.I.visit(this,frame);
-        emit(Machine.PUSHop, 0, 0, extraSize);
+        //store expression value and save from 
+        int varSize = ((Integer) aThis.E.type.visit(this, frame)).intValue();
+        emit(Machine.PUSHop, 0, 0, varSize);
         aThis.entity = new KnownAddress(Machine.addressSize, frame.level, frame.size);
-        SimpleVname varName = new SimpleVname(aThis.I, new SourcePosition());
         writeTableDetails(aThis);
-        encodeStore(varName, new Frame (frame, extraSize),extraSize);
-        return new Integer(extraSize);
+        
+        
+        aThis.E.visit(this, frame);
+        Vname varName = new SimpleVname(aThis.I, aThis.getPosition() );
+        encodeStore(varName, new Frame (frame, varSize), varSize);
+        
+        return new Integer(varSize);
     }
 
 

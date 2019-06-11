@@ -790,7 +790,17 @@ public class TableVisitor implements Visitor {
 
     @Override
     public Object visitVarADeclaration(VarADeclaration aThis, Object o) {
-        aThis.I.visit(this,null);
+       
+        
+        try {
+        addIdentifier(aThis.I.spelling, 
+              "KnownAddress", 
+              (aThis.entity!=null?aThis.entity.size:0), 
+              ((KnownAddress)aThis.entity).address.level, 
+              ((KnownAddress)aThis.entity).address.displacement, 
+              -1);
+        } catch (NullPointerException e) { }
+      
         aThis.E.visit(this,null);
         return (null); 
     }
