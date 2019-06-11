@@ -109,6 +109,7 @@ import Triangle.AbstractSyntaxTrees.Visitor;
 import Triangle.AbstractSyntaxTrees.Vname;
 import Triangle.AbstractSyntaxTrees.VnameExpression;
 import Triangle.AbstractSyntaxTrees.WhileCommand;
+import Triangle.SyntacticAnalyzer.SourcePosition;
 
 //need to implement case literal
 
@@ -116,6 +117,7 @@ public final class Encoder implements Visitor {
 
 
   // Commands
+// <editor-fold defaultstate="collapsed" desc=" Commands ">
   public Object visitAssignCommand(AssignCommand ast, Object o) {
     Frame frame = (Frame) o;
     Integer valSize = (Integer) ast.E.visit(this, frame);
@@ -194,8 +196,9 @@ public final class Encoder implements Visitor {
     return null;
   }
 
-
+ // </editor-fold>
   // Expressions
+// <editor-fold defaultstate="collapsed" desc=" Expressions">
   public Object visitArrayExpression(ArrayExpression ast, Object o) {
     ast.type.visit(this, null);
     return ast.AA.visit(this, o);
@@ -288,8 +291,9 @@ public final class Encoder implements Visitor {
     return valSize;
   }
 
-
+ // </editor-fold>
   // Declarations
+// <editor-fold defaultstate="collapsed" desc=" Declarations ">
   public Object visitBinaryOperatorDeclaration(BinaryOperatorDeclaration ast,
 					       Object o){
     return new Integer(0);
@@ -405,9 +409,10 @@ public final class Encoder implements Visitor {
   public Object visitSingleArrayAggregate(SingleArrayAggregate ast, Object o) {
     return ast.E.visit(this, o);
   }
-
+ // </editor-fold>
 
   // Record Aggregates
+// <editor-fold defaultstate="collapsed" desc=" Record Aggregates, Parameters ">
   public Object visitMultipleRecordAggregate(MultipleRecordAggregate ast,
 					     Object o) {
     Frame frame = (Frame) o;
@@ -550,8 +555,9 @@ public final class Encoder implements Visitor {
     return ast.AP.visit (this, o);
   }
 
-
+ // </editor-fold>
   // Type Denoters
+// <editor-fold defaultstate="collapsed" desc=" Type Denoters ">
   public Object visitAnyTypeDenoter(AnyTypeDenoter ast, Object o) {
     return new Integer(0);
   }
@@ -645,8 +651,9 @@ public final class Encoder implements Visitor {
     return new Integer(fieldSize);
   }
 
-
+ // </editor-fold>
   // Literals, Identifiers and Operators
+// <editor-fold defaultstate="collapsed" desc=" Literals, Identifiers and Operators ">
   public Object visitCharacterLiteral(CharacterLiteral ast, Object o) {
     return null;
   }
@@ -747,12 +754,15 @@ public final class Encoder implements Visitor {
     }
     return baseObject;
   }
-
+ // </editor-fold>
   // Programs
-  //TODO check program validation for package declaration
+  
+
   public Object visitProgram(Program ast, Object o) {
-    ast.D.visit(this,o);
-    return ast.C.visit(this, o);
+    Frame frame = (Frame) o;
+    if(ast.D != null) ast.D.visit(this,frame);
+    
+    return ast.C.visit(this, frame);
   }
 
   public Encoder (ErrorReporter reporter) {
@@ -861,6 +871,7 @@ public final class Encoder implements Visitor {
   boolean tableDetailsReqd;
 
   public static void writeTableDetails(AST ast) {
+      
   }
 
   // OBJECT CODE
@@ -1130,8 +1141,22 @@ public final class Encoder implements Visitor {
 
     @Override
     public Object visitVarADeclaration(VarADeclaration aThis, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Frame frame = (Frame) o;
+        //visit identifier
+       
+        //get size from expression visit 
+        int extraSize = (Integer) aThis.E.visit(this, frame);
+         aThis.I.visit(this,frame);
+        emit(Machine.PUSHop, 0, 0, extraSize);
+        aThis.entity = new KnownAddress(Machine.addressSize, frame.level, frame.size);
+        SimpleVname varName = new SimpleVname(aThis.I, new SourcePosition());
+        writeTableDetails(aThis);
+        encodeStore(varName, new Frame (frame, extraSize),extraSize);
+        return new Integer(extraSize);
     }
+
+
+   
 
     @Override
     public Object visitLitIntegerExpression(LitIntegerExpression aThis, Object o) {
