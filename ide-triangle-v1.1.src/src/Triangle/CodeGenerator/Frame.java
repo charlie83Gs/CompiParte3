@@ -19,28 +19,49 @@ public class Frame {
   public Frame() {
     this.level = 0;
     this.size = 0;
+    isRecursive = false;
   }
 
   public Frame(int level, Integer size) {
     this.level = level;
     this.size = size.intValue();
+    isRecursive = false;
   }
 
   public Frame(int level, int size) {
     this.level = level;
     this.size = size;
+    isRecursive = false;
   }
 
   public Frame(Frame frame, int sizeIncrement) {
     this.level = frame.level;
     this.size = frame.size + sizeIncrement;
+    this.isRecursive = frame.isRecursive;
   }
 
   public Frame(Frame frame, Integer sizeIncrement) {
     this.level = frame.level;
     this.size = frame.size + sizeIncrement.intValue();
+    this.isRecursive = frame.isRecursive;
+  }
+  
+    public Frame(Frame frame, Integer sizeIncrement,boolean isRecursive) {
+    this.level = frame.level;
+    this.size = frame.size + sizeIncrement.intValue();
+    this.isRecursive = isRecursive;
+  }
+  
+  
+  public void makeRecursive(){
+      isRecursive = true;
+  }
+  
+  public void endRecursive(){
+      isRecursive = false;
   }
 
   protected int level;
   protected int size;
+  protected boolean isRecursive;
 }

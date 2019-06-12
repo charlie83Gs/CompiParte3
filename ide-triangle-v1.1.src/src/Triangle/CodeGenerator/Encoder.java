@@ -143,13 +143,15 @@ public final class Encoder implements Visitor {
 
     Integer valSize = (Integer) ast.E.visit(this, frame);
     jumpifAddr = nextInstrAddr;
-    emit(Machine.JUMPIFop, Machine.falseRep, Machine.CBr, 0);
+    emit(Machine.JUMPIFop, Machine.falseRep, Machine.CBr, 0);    
     ast.C1.visit(this, frame);
+    
     jumpAddr = nextInstrAddr;
     emit(Machine.JUMPop, 0, Machine.CBr, 0);
     patch(jumpifAddr, nextInstrAddr);
     ast.C2.visit(this, frame);
     patch(jumpAddr, nextInstrAddr);
+    
     return null;
   }
 
@@ -338,6 +340,7 @@ public final class Encoder implements Visitor {
     }
     emit(Machine.RETURNop, valSize, 0, argsSize);
     patch(jumpAddr, nextInstrAddr);
+    
     return new Integer(0);
   }
 
@@ -358,6 +361,7 @@ public final class Encoder implements Visitor {
       Frame frame2 = new Frame(frame.level + 1, Machine.linkDataSize);
       ast.C.visit(this, frame2);
     }
+    
     emit(Machine.RETURNop, 0, 0, argsSize);
     patch(jumpAddr, nextInstrAddr);
     return new Integer(0);
@@ -368,7 +372,7 @@ public final class Encoder implements Visitor {
     int extraSize1, extraSize2;
 
     extraSize1 = ((Integer) ast.D1.visit(this, frame)).intValue();
-    Frame frame1 = new Frame (frame, extraSize1);
+    Frame frame1 = new Frame (frame, extraSize1,frame.isRecursive);
     extraSize2 = ((Integer) ast.D2.visit(this, frame1)).intValue();
     return new Integer(extraSize1 + extraSize2);
   }
@@ -660,6 +664,15 @@ public final class Encoder implements Visitor {
 
   public Object visitIdentifier(Identifier ast, Object o) {
     Frame frame = (Frame) o;
+     System.out.println("Identifier: " + ast.spelling);
+    /*if(frame.isRecursive){
+        ObjectAddress dummyAdress = new ObjectAddress(frame.level , 0);
+        emit(Machine.CALLop, displayRegister(frame.level, dummyAdress.level),
+	Machine.CBr, dummyAdress.displacement);
+        System.out.println("Recursive!!");
+        return null;
+    }*/
+    
     if (ast.decl.entity instanceof KnownRoutine) {
       ObjectAddress address = ((KnownRoutine) ast.decl.entity).address;
       emit(Machine.CALLop, displayRegister(frame.level, address.level),
@@ -677,6 +690,12 @@ public final class Encoder implements Visitor {
       int displacement = ((EqualityRoutine) ast.decl.entity).displacement;
       emit(Machine.LOADLop, 0, 0, frame.size / 2);
       emit(Machine.CALLop, Machine.SBr, Machine.PBr, displacement);
+    }else{
+        //unknown addres asumes a later fix
+        ObjectAddress dummyAdress = new ObjectAddress(frame.level , 0);
+        emit(Machine.CALLop, displayRegister(frame.level, dummyAdress.level),
+	Machine.CBr, dummyAdress.displacement);
+        System.out.println("Recursive: " + ast.spelling);
     }
     return null;
   }
@@ -705,6 +724,7 @@ public final class Encoder implements Visitor {
       emit(Machine.LOADLop, 0, 0, frame.size / 2);
       emit(Machine.CALLop, Machine.SBr, Machine.PBr, displacement);
     }
+    
     return null;
   }
 
@@ -901,6 +921,16 @@ public final class Encoder implements Visitor {
     }
   }
 
+  private boolean isRecursive = false;
+  
+  private void startRecursive(){
+      isRecursive = true;
+  }
+  
+  private void endRecursive(){
+      isRecursive = false;
+  }
+  
   // Patches the d-field of the instruction at address addr.
   private void patch (int addr, int d) {
     Machine.code[addr].d = d;
@@ -1128,17 +1158,47 @@ public final class Encoder implements Visitor {
     public Object ParDeclaration(Triangle.AbstractSyntaxTrees.ParDeclaration aThis, Object o) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
-
+    
+    
+    //same code as a secuential declaration
     @Override
     public Object ProcFuncDeclaration(Triangle.AbstractSyntaxTrees.ProcFuncDeclaration aThis, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Frame frame = (Frame) o;
+        int extraSize1, extraSize2;
+
+        extraSize1 = ((Integer) aThis.D1.visit(this, frame)).intValue();
+        Frame frame1 = new Frame (frame, extraSize1,frame.isRecursive);
+        extraSize2 = 0;
+        if(aThis.D2 != null){
+        extraSize2 = ((Integer) aThis.D2.visit(this, frame1)).intValue();
+        }
+        return new Integer(extraSize1 + extraSize2);
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
+    //start recursive declaration, recursive func-procs position must be visible to all functions in recursive
+    //so any function call inside other function may need to be patched after first visit
+    //modified sequential declaration to transfer recursivity to next declarations
+    //modified visit identifier to ignore function call inside of recursive declarations
     @Override
     public Object RecursiveDeclaration(Triangle.AbstractSyntaxTrees.RecursiveDeclaration aThis, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Frame frame = (Frame)o;
+        //stores next instruction addres for a later pass
+        //first pass, store declaration positions
+        int initialAddress = nextInstrAddr;
+        frame.makeRecursive();
+        int extraSize = ((Integer) aThis.D1.visit(this, frame)).intValue();
+        frame.endRecursive();
+        
+        //second pass update function call adresses
+        nextInstrAddr = initialAddress;
+        aThis.D1.visit(this, frame);
+        
+        return extraSize;
     }
-
+    
+    //simple extension of lenguaje, adds variable addres on stack
+    //then stores variable value on data segment
     @Override
     public Object visitVarADeclaration(VarADeclaration aThis, Object o) {
         Frame frame = (Frame) o;
@@ -1161,15 +1221,25 @@ public final class Encoder implements Visitor {
 
    
 
+    //expresion for cases, same code as normal expresions
     @Override
     public Object visitLitIntegerExpression(LitIntegerExpression aThis, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Integer valSize = (Integer) aThis.type.visit(this, null);
+        emit(Machine.LOADLop, 0, 0, Integer.parseInt(aThis.IL.spelling));
+        return valSize;
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
     public Object visitLiteralCharacterExpression(LitCharacterExpression aThis, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
+        Frame frame = (Frame) o;
+        Integer valSize = (Integer) aThis.type.visit(this, null);
+        emit(Machine.LOADLop, 0, 0, aThis.CL.spelling.charAt(1));
+        return valSize;
+    }  
+
+//throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+
 
 
 }

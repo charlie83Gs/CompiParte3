@@ -428,9 +428,20 @@ public final class Checker implements Visitor {
   public Object visitFuncDeclaration(FuncDeclaration ast, Object o) {
     ast.T = (TypeDenoter) ast.T.visit(this, null);
     idTable.enter (ast.I.spelling, ast); // permits recursion
-    if (ast.duplicated)
+    //do not visit body for recursive function
+    if(isRecursive && !ast.duplicated) {
+        idTable.openScope();
+        ast.FPS.visit(this, null);
+        idTable.closeScope();
+        return null;
+    }
+   
+    if (ast.duplicated &&  !isRecursive)
       reporter.reportError ("identifier \"%\" already declared",
-                            ast.I.spelling, ast.position);
+              ast.I.spelling, ast.position);
+    
+    
+    
     idTable.openScope();
     ast.FPS.visit(this, null);
     TypeDenoter eType = (TypeDenoter) ast.E.visit(this, null);
@@ -438,12 +449,23 @@ public final class Checker implements Visitor {
     if (! ast.T.equals(eType))
       reporter.reportError ("body of function \"%\" has wrong type",
                             ast.I.spelling, ast.E.position);
+    
+    
+    if(isRecursive)ast.duplicated =false;
     return null;
   }
 
   public Object visitProcDeclaration(ProcDeclaration ast, Object o) {
     idTable.enter (ast.I.spelling, ast); // permits recursion
-    if (ast.duplicated)
+    //do not visit body for recursive proc
+    if(isRecursive && !ast.duplicated) {
+        idTable.openScope();
+        ast.FPS.visit(this, null);
+        idTable.closeScope();
+        return null;
+    }
+   
+    if (ast.duplicated &&  !isRecursive)
       reporter.reportError ("identifier \"%\" already declared",
                             ast.I.spelling, ast.position);
     idTable.openScope();
@@ -625,10 +647,12 @@ public final class Checker implements Visitor {
   public Object visitConstActualParameter(ConstActualParameter ast, Object o) {
     FormalParameter fp = (FormalParameter) o;
     TypeDenoter eType = (TypeDenoter) ast.E.visit(this, null);
-
+    
+    //System.err.println(eType.toString());
     if (! (fp instanceof ConstFormalParameter))
       reporter.reportError ("const actual parameter not expected here", "",
                             ast.position);
+    
     else if (! eType.equals(((ConstFormalParameter) fp).T))
       reporter.reportError ("wrong type for const actual parameter", "",
                             ast.E.position);
@@ -1133,6 +1157,21 @@ public final class Checker implements Visitor {
 
   }
 
+  private boolean isRecursive = false;  
+
+
+  
+  private void startRecursive(){
+      isRecursive = true;
+  }
+  
+
+  
+  private void endRecursive(){
+      isRecursive = false;
+
+  }
+  
   
   
   
@@ -1264,7 +1303,10 @@ public final class Checker implements Visitor {
 
     @Override
     public Object RecursiveDeclaration(Triangle.AbstractSyntaxTrees.RecursiveDeclaration aThis, Object o) {
+        startRecursive();
         aThis.D1.visit(this, null);
+        aThis.D1.visit(this, null);
+        endRecursive();
         return null;  
     }
 
