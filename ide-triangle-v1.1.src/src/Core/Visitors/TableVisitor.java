@@ -294,7 +294,12 @@ public class TableVisitor implements Visitor {
   }
   
   public Object visitConstDeclaration(ConstDeclaration ast, Object o) {   
-      String name = ast.I.spelling;
+      //String name = ast.I.spelling;
+      
+        String newName = ast.I.spelling;
+        //add package name if needes
+        if(!getPackage().equals("")) newName = getPackage() + "$"+ newName;
+      
       String type = "N/A";
       try {
         int size = (ast.entity!=null?ast.entity.size:0);
@@ -311,7 +316,7 @@ public class TableVisitor implements Visitor {
               level = ((UnknownValue)ast.entity).address.level;
               displacement = ((UnknownValue)ast.entity).address.displacement;
           }
-          addIdentifier(name, type, size, level, displacement, value);
+          addIdentifier(newName, type, size, level, displacement, value);
       } catch (NullPointerException e) { }
       
       ast.E.visit(this, null);
@@ -321,8 +326,12 @@ public class TableVisitor implements Visitor {
   }
   
   public Object visitFuncDeclaration(FuncDeclaration ast, Object o) {    
+        String newName = ast.I.spelling;
+        //add package name if needes
+        if(!getPackage().equals("")) newName = getPackage() + "$"+ newName;
+      
       try {
-      addIdentifier(ast.I.spelling, 
+      addIdentifier(newName, 
               "KnownRoutine", 
               (ast.entity!=null?ast.entity.size:0), 
               ((KnownRoutine)ast.entity).address.level, 
@@ -336,9 +345,13 @@ public class TableVisitor implements Visitor {
       return(null);
   }
   
-  public Object visitProcDeclaration(ProcDeclaration ast, Object o) { 
+  public Object visitProcDeclaration(ProcDeclaration ast, Object o) {
+        String newName = ast.I.spelling;
+        //add package name if needes
+        if(!getPackage().equals("")) newName = getPackage() + "$"+ newName;
+      
       try {
-      addIdentifier(ast.I.spelling, "KnownRoutine", 
+      addIdentifier(newName, "KnownRoutine", 
               (ast.entity!=null?ast.entity.size:0), 
               ((KnownRoutine)ast.entity).address.level, 
               ((KnownRoutine)ast.entity).address.displacement, 
@@ -369,8 +382,12 @@ public class TableVisitor implements Visitor {
   }
   
   public Object visitVarDeclaration(VarDeclaration ast, Object o) {      
+        String newName = ast.I.spelling;
+        //add package name if needes
+        if(!getPackage().equals("")) newName = getPackage() + "$"+ newName;
+      
       try {
-      addIdentifier(ast.I.spelling, 
+      addIdentifier(newName, 
               "KnownAddress", 
               (ast.entity!=null?ast.entity.size:0), 
               ((KnownAddress)ast.entity).address.level, 
@@ -616,7 +633,7 @@ public class TableVisitor implements Visitor {
   public Object visitIdentifier(Identifier ast, Object o) {             
       return(null);
   }
-  public Object visitLongIdentifier(LongIdentifier ast, Object o) {             
+  public Object visitLongIdentifier(LongIdentifier ast, Object o) {            
       ast.P.visit(this, o);
       return(null);
   }
@@ -670,8 +687,10 @@ public class TableVisitor implements Visitor {
   
   
     public Object visitSinglePackageDeclaration(SinglePackageDeclaration ast, Object o) {
-              ast.I.visit(this, null); 
+              
+              startPackage(ast.I.spelling);
               ast.D.visit(this, null); 
+              endPackage();
               return(null);
     }
     public Object visitSequentialPackageDeclaration(SequentialPackageDeclaration ast, Object o) {
@@ -713,10 +732,28 @@ public class TableVisitor implements Visitor {
     
     // </editor-fold>
     
+    
+    
+    
   // <editor-fold defaultstate="collapsed" desc=" Attributes ">
     private DefaultTableModel model;
     // </editor-fold>
 
+    
+    private String currentPackage= "";
+  
+    private void startPackage(String newPacakage){
+        currentPackage = newPacakage;
+    }
+
+    private void endPackage(){
+        currentPackage = "";
+    }
+
+    private String getPackage(){
+        return currentPackage;
+    } 
+  
        @Override
     public Object visitCaseLiteral(CaseLiteral aThis, Object o) {
         aThis.caselite.visit(this,null);
@@ -792,9 +829,13 @@ public class TableVisitor implements Visitor {
     @Override
     public Object visitVarADeclaration(VarADeclaration aThis, Object o) {
        
+        String newName = aThis.I.spelling;
+        if(aThis.I instanceof LongIdentifier){
+            newName =((LongIdentifier)aThis.I).P.spelling + "$" + aThis.I.spelling;
+        }
         
         try {
-        addIdentifier(aThis.I.spelling, 
+        addIdentifier(newName, 
               "KnownAddress", 
               (aThis.entity!=null?aThis.entity.size:0), 
               ((KnownAddress)aThis.entity).address.level, 

@@ -842,6 +842,7 @@ public final class Checker implements Visitor {
       I.decl = binding;
     else
         reporter.reportError("\"%\" is not declared", I.spelling + "$" + I.P.spelling, I.position);
+    
     return binding;
   }
   //should revise id Table for packages

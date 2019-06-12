@@ -921,15 +921,22 @@ public final class Encoder implements Visitor {
     }
   }
 
+  //deprecated
   private boolean isRecursive = false;
   
+  //dreprecated
   private void startRecursive(){
       isRecursive = true;
   }
-  
+  //deprecated
   private void endRecursive(){
       isRecursive = false;
   }
+  
+  
+
+  
+  
   
   // Patches the d-field of the instruction at address addr.
   private void patch (int addr, int d) {
@@ -1077,88 +1084,148 @@ public final class Encoder implements Visitor {
     @Override
     public Object visitCaseLiteral(CaseLiteral aThis, Object o) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    
     }
 
     @Override
     public Object visitDoWhileCommand(DoWhileCommand ast, Object o) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    
     }
 
     @Override
     public Object visitDoUntilCommand(DoUntilCommand ast, Object o) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    
     }
 
     @Override
     public Object visitForCommand(ForCommand ast, Object o) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+   
     }
 
     @Override
     public Object visitForWhileCommand(ForWhileCommand ast, Object o) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    
     }
 
     @Override
     public Object visitForUntilCommand(ForUntilCommand ast, Object o) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    
     }
 
-    @Override
-    public Object visitPackageIdentifier(PackageIdentifier ast, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
+   
+  
     @Override
     public Object visitSinglePackageDeclaration(SinglePackageDeclaration ast, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Frame frame = (Frame)o;
+        //set package to encoder
+        
+        int extraSize = ((Integer)ast.D.visit(this, frame)).intValue();
+        
+        
+        return new Integer(extraSize);
     }
 
     @Override
     public Object visitSequentialPackageDeclaration(SequentialPackageDeclaration ast, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Frame frame = (Frame)o;
+        int extraSize1 = ((Integer)ast.D.visit(this, frame)).intValue();
+        Frame frame1 = new Frame (frame, extraSize1,frame.isRecursive);
+        int extraSize2 = ((Integer)ast.D2.visit(this, frame1)).intValue();
+        
+        return new Integer(extraSize1 + extraSize2);
     }
-
+    
+    //package identifier does not gets visited its spelling is used to change the
+    //package variable of the encoder
+      //missing weird bug that does not load binding on long packagae idientifier, whe using visit Vname
+    @Override
+    public Object visitPackageIdentifier(PackageIdentifier ast, Object o) {
+        return null;
+    }
+    
+    //sets package variable on encoder
+    //modifies identifier and variable acces taking into consideration the package
     @Override
     public Object visitLongIdentifier(LongIdentifier ast, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+       
+       // System.out.println("Long identifier entity set"); 
+       //redirect to normal identifier visit
+       visitIdentifier(ast, o);
+       
+       
+       return null;
+       
     }
 
+    
+    
+    
     @Override
     public Object visitChooseCommand(ChooseCommand aThis, Object o) {
+        
+        
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
     public Object visitCaseRange(CaseRange aThis, Object o) {
+        
+        
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
     public Object visitComCase(ComCase aThis, Object o) {
+        
+        
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
     public Object visitElseCase(ElseCase aThis, Object o) {
+        
+        
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
     public Object visitSCase(SCase aThis, Object o) {
+        
+        
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
+    //This code is the same as sequential declaration because the private validation happens in contextual analisis
     @Override
     public Object privateDeclaration(Triangle.AbstractSyntaxTrees.PrivateDeclaration aThis, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Frame frame = (Frame)o;
+        int extraSize1 = ((Integer)aThis.D1.visit(this, frame)).intValue();
+        Frame frame1 = new Frame (frame, extraSize1,frame.isRecursive);
+        int extraSize2 = ((Integer)aThis.D2.visit(this, frame1)).intValue();
+        
+        return new Integer(extraSize1 + extraSize2);
+
+        //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
+    
+    //This code is the same as sequential declaration because the paralel validation happens in contextual analisis
     @Override
     public Object ParDeclaration(Triangle.AbstractSyntaxTrees.ParDeclaration aThis, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Frame frame = (Frame)o;
+        int extraSize1 = ((Integer)aThis.D1.visit(this, frame)).intValue();
+        Frame frame1 = new Frame (frame, extraSize1,frame.isRecursive);
+        int extraSize2 = ((Integer)aThis.D2.visit(this, frame1)).intValue();
+        
+        return new Integer(extraSize1 + extraSize2);
     }
     
+
     
     //same code as a secuential declaration
     @Override
