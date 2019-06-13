@@ -183,7 +183,18 @@ public class TableVisitor implements Visitor {
   }
   
    public Object visitForCommand(ForCommand ast, Object o) { 
-      ast.I.visit(this, null);
+        String newName = ast.I.spelling;
+        //add package name if needes
+        if(!getPackage().equals("")) newName = getPackage() + "$"+ newName;
+      try {
+      addIdentifier(newName, 
+              "KnownAddress", 
+              (ast.entity!=null?ast.entity.size:0), 
+              ((KnownAddress)ast.I.decl.entity).address.level, 
+              ((KnownAddress)ast.I.decl.entity).address.displacement, 
+              -1);
+      } catch (NullPointerException e) { System.out.println("err");}
+       
       ast.E.visit(this, null);
       ast.E2.visit(this, null);
       ast.C.visit(this, null);

@@ -213,8 +213,8 @@ public final class Checker implements Visitor {
     //scope for control variable
     idTable.openScope();
     //declare const and register on IdTable
-    declareForConst(ast.I.spelling, new IntTypeDenoter(ast.I.position));
-    ast.I.visit(this, null);
+    declareForConst(ast.I, new IntTypeDenoter(ast.I.position));
+    //ast.I.visit(this, null);
     
     
     if (! eType.equals(StdEnvironment.integerType))
@@ -234,8 +234,8 @@ public final class Checker implements Visitor {
     
     idTable.openScope();
     //declare const and register on IdTable
-    declareForConst(ast.I.spelling, new IntTypeDenoter(ast.I.position));
-    ast.I.visit(this, null);
+    declareForConst(ast.I, new IntTypeDenoter(ast.I.position));
+    //ast.I.visit(this, null);
     
     //expression 3 has acces to control variable
     TypeDenoter e3Type = (TypeDenoter) ast.E3.visit(this, null);
@@ -258,8 +258,8 @@ public final class Checker implements Visitor {
     
     idTable.openScope();
     //declare const and register on IdTable
-    declareForConst(ast.I.spelling, new IntTypeDenoter(ast.I.position));
-    ast.I.visit(this, null);
+    declareForConst(ast.I, new IntTypeDenoter(ast.I.position));
+    //ast.I.visit(this, null);
     
     //expression 3 has acces to control variable
     TypeDenoter e3Type = (TypeDenoter) ast.E3.visit(this, null);
@@ -1313,7 +1313,7 @@ public final class Checker implements Visitor {
 
     
     //const tipe for variable in for loop
-    private ForControlVarDeclaration declareForConst (String id, TypeDenoter constType) {
+    private ForControlVarDeclaration declareForConst (Identifier forIdentifier, TypeDenoter constType) {
 
     IntegerExpression constExpr;
     ForControlVarDeclaration binding;
@@ -1321,8 +1321,10 @@ public final class Checker implements Visitor {
     // constExpr used only as a placeholder for constType
     constExpr = new IntegerExpression(null, dummyPos);
     constExpr.type = constType;
-    binding = new ForControlVarDeclaration(new Identifier(id, dummyPos), constExpr, dummyPos);
-    idTable.enter(id, binding);
+    binding = new ForControlVarDeclaration(forIdentifier, constExpr, dummyPos);
+    
+    idTable.enter(forIdentifier.spelling, binding);
+    forIdentifier.decl = binding;
     return binding;
   }
 

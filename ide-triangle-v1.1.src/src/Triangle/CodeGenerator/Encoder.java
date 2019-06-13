@@ -184,6 +184,7 @@ public final class Encoder implements Visitor {
     return null;
   }
   
+  //bug of original code until command had exact same code as while, loop jump must be inverse
    public Object visitUntilCommand(UntilCommand ast, Object o) {
     Frame frame = (Frame) o;
     int jumpAddr, loopAddr;
@@ -194,7 +195,7 @@ public final class Encoder implements Visitor {
     ast.C.visit(this, frame);
     patch(jumpAddr, nextInstrAddr);
     ast.E.visit(this, frame);
-    emit(Machine.JUMPIFop, Machine.trueRep, Machine.CBr, loopAddr);
+    emit(Machine.JUMPIFop, Machine.falseRep, Machine.CBr, loopAddr);
     return null;
   }
 
@@ -288,6 +289,7 @@ public final class Encoder implements Visitor {
 
   public Object visitVnameExpression(VnameExpression ast, Object o) {
     Frame frame = (Frame) o;
+    //System.out.println(ast.V.entity);
     Integer valSize = (Integer) ast.type.visit(this, null);
     encodeFetch(ast.V, frame, valSize.intValue());
     return valSize;
@@ -742,6 +744,9 @@ public final class Encoder implements Visitor {
   public Object visitSimpleVname(SimpleVname ast, Object o) {
     ast.offset = 0;
     ast.indexed = false;
+    //System.err.println(ast.I.spelling);    
+    //System.err.println(ast.I.decl.entity);
+
     return ast.I.decl.entity;
   }
 
@@ -976,6 +981,7 @@ public final class Encoder implements Visitor {
   private void encodeStore(Vname V, Frame frame, int valSize) {
 
     RuntimeEntity baseObject = (RuntimeEntity) V.visit(this, frame);
+      System.err.println(baseObject);
     // If indexed = true, code will have been generated to load an index value.
     if (valSize > 255) {
       reporter.reportRestriction("can't store values larger than 255 words");
@@ -1016,6 +1022,7 @@ public final class Encoder implements Visitor {
   private void encodeFetch(Vname V, Frame frame, int valSize) {
 
     RuntimeEntity baseObject = (RuntimeEntity) V.visit(this, frame);
+    //System.err.println(baseObject);
     // If indexed = true, code will have been generated to load an index value.
     if (valSize > 255) {
       reporter.reportRestriction("can't load values larger than 255 words");
@@ -1081,39 +1088,275 @@ public final class Encoder implements Visitor {
     }
   }
 
-    @Override
-    public Object visitCaseLiteral(CaseLiteral aThis, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    
-    }
-
+   
+   //same as while comand but skyps first jump
+    //loop
+    //commandCode
+    //evaluate binary expresion
+    //JUMPIFop loop
     @Override
     public Object visitDoWhileCommand(DoWhileCommand ast, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Frame frame = (Frame) o;
+        int loopAddr;
+        loopAddr = nextInstrAddr;
+        ast.C.visit(this, frame);
+        ast.E.visit(this, frame);
+        emit(Machine.JUMPIFop, Machine.trueRep, Machine.CBr, loopAddr);
+        
+        return null;
+      
     
     }
 
     @Override
     public Object visitDoUntilCommand(DoUntilCommand ast, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Frame frame = (Frame) o;
+        int loopAddr;
+        loopAddr = nextInstrAddr;
+        ast.C.visit(this, frame);
+        ast.E.visit(this, frame);
+        emit(Machine.JUMPIFop, Machine.falseRep, Machine.CBr, loopAddr);
+        
+         return null;
     
     }
-
+    
+    //requires second value to be greater than first value
+    //code logic summary ------------------------------------
+    //create control variable with exp1 value
+    //create variable to store end number evaluation
+    //jump to evaluation condition
+    //loop start
+    //for command execution
+    //increase control variable
+    //evaluate if control variable is smaller than original exp2 value
+    //clean the stack by poping control variable and end variable references
+    
     @Override
     public Object visitForCommand(ForCommand ast, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-   
-    }
+        
+        
+        Frame frame = (Frame) o;
 
+            
+        //create and store initial variable
+        int controlVariableAdress = nextInstrAddr;
+        VarADeclaration forVarD = new VarADeclaration(ast.I, ast.E, ast.position);
+        int var1Size = (Integer)forVarD.visit(this, frame);
+        
+        ast.I.decl.entity = forVarD.entity;
+        //update frame
+        frame = new Frame(frame,var1Size);
+        
+        //store end variable to evaluate top end only once
+        Identifier endVarI = new Identifier("",new SourcePosition()); 
+        VarADeclaration forVarDend = new VarADeclaration(endVarI, ast.E2, ast.position);
+        endVarI.decl = forVarDend;
+        int var2Size = (Integer) forVarDend.visit(this, frame);
+        
+        
+        Frame frame1 = new Frame(frame,var2Size);
+            
+        //start for command loop
+        int jumpAddr, loopAddr;
+        jumpAddr = nextInstrAddr;
+        emit(Machine.JUMPop, 0, Machine.CBr, 0);
+        loopAddr = nextInstrAddr;
+        
+        ast.C.visit(this, frame1);
+        
+        
+        //ast.E2.visit(this, frame1);
+        //load control variable value
+        //emit(Machine.LOADop, extraSize,Machine.SBr,controlVariableAdress);
+        
+        
+        //increase control variable
+        Vname initialVarName = new SimpleVname(ast.I, ast.getPosition() );        
+        Vname finalVarName = new SimpleVname(endVarI, ast.getPosition() );
+        
+        //execute variable increase after loop comand execution
+        emit(Machine.LOADLop,0,0,1);
+        encodeFetch(initialVarName, frame, var1Size);
+        emit(Machine.CALLop,Machine.SBr,Machine.PBr,Machine.addDisplacement);
+        encodeStore(initialVarName, frame, var1Size);
+        
+        //make jump to evaluation instructions only
+        patch(jumpAddr, nextInstrAddr);
+        
+        encodeFetch(finalVarName, frame, var2Size);
+        encodeFetch(initialVarName, frame, var1Size);
+        //verify if value of control variable is greater than E2, repeat loop otherwhise
+        emit(Machine.CALLop, Machine.SBr, Machine.PBr, Machine.geDisplacement);
+        emit(Machine.JUMPIFop, Machine.trueRep, Machine.CBr, loopAddr);
+        //clean control variable storage
+        emit(Machine.POPop, 0, 0, var1Size);
+        emit(Machine.POPop, 0, 0, var2Size);
+        return null;
+            
+    }
+    
+    //not tested !!!, there where not valid examples on project two examples
+    //requires second value to be greater than first value
+    //code logic summary ------------------------------------
+    //create control variable with exp1 value
+    //create variable to store end number evaluation
+    //jump to evaluation condition
+    //loop start
+    //inner while execution
+    //increase control variable
+    //evaluate if control variable is smaller than original exp2 value
+    //clean the stack by poping control variable and end variable references
+    
     @Override
     public Object visitForWhileCommand(ForWhileCommand ast, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    
-    }
+          Frame frame = (Frame) o;
 
+            
+        //create and store initial variable
+        int controlVariableAdress = nextInstrAddr;
+        VarADeclaration forVarD = new VarADeclaration(ast.I, ast.E, ast.position);
+        int var1Size = (Integer)forVarD.visit(this, frame);
+        
+        ast.I.decl.entity = forVarD.entity;
+        //update frame
+        frame = new Frame(frame,var1Size);
+        
+        //store end variable to evaluate top end only once
+        Identifier endVarI = new Identifier("",new SourcePosition()); 
+        VarADeclaration forVarDend = new VarADeclaration(endVarI, ast.E2, ast.position);
+        endVarI.decl = forVarDend;
+        int var2Size = (Integer) forVarDend.visit(this, frame);
+        
+        
+        Frame frame1 = new Frame(frame,var2Size);
+            
+        //start for command loop
+        int jumpAddr, loopAddr;
+        jumpAddr = nextInstrAddr;
+        emit(Machine.JUMPop, 0, Machine.CBr, 0);
+        loopAddr = nextInstrAddr;
+        
+        //inner while command
+        int whileJumpAddr = nextInstrAddr;
+        emit(Machine.JUMPop, 0, Machine.CBr, 0);
+        loopAddr = nextInstrAddr;
+        ast.C.visit(this, frame);
+        patch(whileJumpAddr, nextInstrAddr);
+        ast.E3.visit(this, frame);
+        emit(Machine.JUMPIFop, Machine.trueRep, Machine.CBr, loopAddr);
+
+        
+        
+        //ast.E2.visit(this, frame1);
+        //load control variable value
+        //emit(Machine.LOADop, extraSize,Machine.SBr,controlVariableAdress);
+        
+        
+        //increase control variable
+        Vname initialVarName = new SimpleVname(ast.I, ast.getPosition() );        
+        Vname finalVarName = new SimpleVname(endVarI, ast.getPosition() );
+        
+        //execute variable increase after loop comand execution
+        emit(Machine.LOADLop,0,0,1);
+        encodeFetch(initialVarName, frame, var1Size);
+        emit(Machine.CALLop,Machine.SBr,Machine.PBr,Machine.addDisplacement);
+        encodeStore(initialVarName, frame, var1Size);
+        
+        //make jump to evaluation instructions only
+        patch(jumpAddr, nextInstrAddr);
+        
+        encodeFetch(finalVarName, frame, var2Size);
+        encodeFetch(initialVarName, frame, var1Size);
+        //verify if value of control variable is greater than E2, repeat loop otherwhise
+        emit(Machine.CALLop, Machine.SBr, Machine.PBr, Machine.geDisplacement);
+        emit(Machine.JUMPIFop, Machine.trueRep, Machine.CBr, loopAddr);
+        //clean control variable storage
+        emit(Machine.POPop, 0, 0, var1Size);
+        emit(Machine.POPop, 0, 0, var2Size);
+        
+        return null;
+    }
+    
+     //not tested !!!, there where not valid examples on project two examples
+    //requires second value to be greater than first value
+    //code logic summary ------------------------------------
+    //create control variable with exp1 value
+    //create variable to store end number evaluation
+    //jump to evaluation condition
+    //loop start
+    //inner until loop execution
+    //increase control variable
+    //evaluate if control variable is smaller than original exp2 value
+    //clean the stack by poping control variable and end variable references
     @Override
     public Object visitForUntilCommand(ForUntilCommand ast, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+           Frame frame = (Frame) o;
+
+            
+        //create and store initial variable
+        int controlVariableAdress = nextInstrAddr;
+        VarADeclaration forVarD = new VarADeclaration(ast.I, ast.E, ast.position);
+        int var1Size = (Integer)forVarD.visit(this, frame);
+        
+        ast.I.decl.entity = forVarD.entity;
+        //update frame
+        frame = new Frame(frame,var1Size);
+        
+        //store end variable to evaluate top end only once
+        Identifier endVarI = new Identifier("",new SourcePosition()); 
+        VarADeclaration forVarDend = new VarADeclaration(endVarI, ast.E2, ast.position);
+        endVarI.decl = forVarDend;
+        int var2Size = (Integer) forVarDend.visit(this, frame);
+        
+        
+        Frame frame1 = new Frame(frame,var2Size);
+            
+        //start for command loop
+        int jumpAddr, loopAddr;
+        jumpAddr = nextInstrAddr;
+        emit(Machine.JUMPop, 0, Machine.CBr, 0);
+        loopAddr = nextInstrAddr;
+        
+        //inner while command
+        int whileJumpAddr = nextInstrAddr;
+        emit(Machine.JUMPop, 0, Machine.CBr, 0);
+        loopAddr = nextInstrAddr;
+        ast.C.visit(this, frame);
+        patch(whileJumpAddr, nextInstrAddr);
+        ast.E3.visit(this, frame);
+        emit(Machine.JUMPIFop, Machine.falseRep, Machine.CBr, loopAddr);
+
+        
+        
+        //ast.E2.visit(this, frame1);
+        //load control variable value
+        //emit(Machine.LOADop, extraSize,Machine.SBr,controlVariableAdress);
+        
+        
+        //increase control variable
+        Vname initialVarName = new SimpleVname(ast.I, ast.getPosition() );        
+        Vname finalVarName = new SimpleVname(endVarI, ast.getPosition() );
+        
+        //execute variable increase after loop comand execution
+        emit(Machine.LOADLop,0,0,1);
+        encodeFetch(initialVarName, frame, var1Size);
+        emit(Machine.CALLop,Machine.SBr,Machine.PBr,Machine.addDisplacement);
+        encodeStore(initialVarName, frame, var1Size);
+        
+        //make jump to evaluation instructions only
+        patch(jumpAddr, nextInstrAddr);
+        
+        encodeFetch(finalVarName, frame, var2Size);
+        encodeFetch(initialVarName, frame, var1Size);
+        //verify if value of control variable is greater than E2, repeat loop otherwhise
+        emit(Machine.CALLop, Machine.SBr, Machine.PBr, Machine.geDisplacement);
+        emit(Machine.JUMPIFop, Machine.trueRep, Machine.CBr, loopAddr);
+        //clean control variable storage
+        emit(Machine.POPop, 0, 0, var1Size);
+        emit(Machine.POPop, 0, 0, var2Size);
+        
+        return null;
     
     }
 
@@ -1163,7 +1406,12 @@ public final class Encoder implements Visitor {
     }
 
     
+    @Override
+    public Object visitCaseLiteral(CaseLiteral aThis, Object o) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     
+    }
+
     
     @Override
     public Object visitChooseCommand(ChooseCommand aThis, Object o) {
@@ -1279,6 +1527,7 @@ public final class Encoder implements Visitor {
         
         
         aThis.E.visit(this, frame);
+        aThis.I.decl.entity = aThis.entity;
         Vname varName = new SimpleVname(aThis.I, aThis.getPosition() );
         encodeStore(varName, new Frame (frame, varSize), varSize);
         
@@ -1303,6 +1552,7 @@ public final class Encoder implements Visitor {
         Integer valSize = (Integer) aThis.type.visit(this, null);
         emit(Machine.LOADLop, 0, 0, aThis.CL.spelling.charAt(1));
         return valSize;
+        
     }  
 
 //throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
