@@ -110,6 +110,7 @@ import Triangle.AbstractSyntaxTrees.Vname;
 import Triangle.AbstractSyntaxTrees.VnameExpression;
 import Triangle.AbstractSyntaxTrees.WhileCommand;
 import Triangle.SyntacticAnalyzer.SourcePosition;
+import java.util.ArrayList;
 
 //need to implement case literal
 
@@ -142,6 +143,8 @@ public final class Encoder implements Visitor {
     int jumpifAddr, jumpAddr;
 
     Integer valSize = (Integer) ast.E.visit(this, frame);
+    
+    
     jumpifAddr = nextInstrAddr;
     emit(Machine.JUMPIFop, Machine.falseRep, Machine.CBr, 0);    
     ast.C1.visit(this, frame);
@@ -782,7 +785,7 @@ public final class Encoder implements Visitor {
  // </editor-fold>
   // Programs
   
-
+    private ArrayList<Integer> aDirecciones;
   public Object visitProgram(Program ast, Object o) {
     Frame frame = (Frame) o;
     if(ast.D != null) ast.D.visit(this,frame);
@@ -791,6 +794,7 @@ public final class Encoder implements Visitor {
   }
 
   public Encoder (ErrorReporter reporter) {
+    aDirecciones = new ArrayList<Integer>();
     this.reporter = reporter;
     nextInstrAddr = Machine.CB;
     elaborateStdEnvironment();
@@ -906,6 +910,7 @@ public final class Encoder implements Visitor {
   // The address of the next instruction is held in nextInstrAddr.
 
   private int nextInstrAddr;
+  
 
   // Appends an instruction, with the given fields, to the object code.
   private void emit (int op, int n, int r, int d) {
@@ -1292,7 +1297,9 @@ public final class Encoder implements Visitor {
     @Override
     public Object visitForUntilCommand(ForUntilCommand ast, Object o) {
            Frame frame = (Frame) o;
-
+           
+           
+           
             
         //create and store initial variable
         int controlVariableAdress = nextInstrAddr;
@@ -1408,44 +1415,76 @@ public final class Encoder implements Visitor {
     
     @Override
     public Object visitCaseLiteral(CaseLiteral aThis, Object o) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    
+        if(aThis.caselite!=null){
+        Integer valSize1=(Integer) aThis.caselite2.visit(this,o);
+        
+        
+        Integer val2Size2=(Integer) aThis.caselite.visit(this,o);
+        return valSize1+val2Size2;}
+        else{
+            Integer valSize1=(Integer) aThis.caselite2.visit(this,o);
+            return valSize1;
+        
+            
+        }
     }
 
     
     @Override
     public Object visitChooseCommand(ChooseCommand aThis, Object o) {
-        
-        
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        Frame frame = (Frame) o;
+        int expressionCase;
+        expressionCase=(Integer) aThis.E.visit(this,frame);
+        Frame frame1=new Frame(frame, expressionCase);
+        aThis.C.visit(this,frame1);
+        return null;
+       
     }
 
     @Override
     public Object visitCaseRange(CaseRange aThis, Object o) {
-        
-        
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
+        aThis.caseRange.visit(this, o);
+        aThis.caseRange2.visit(this,o);
+        return null;
+    
+   }
+    
+    
     @Override
     public Object visitComCase(ComCase aThis, Object o) {
-        
-        
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
+        Frame frame=(Frame) o;
+        int jumpAbort,jumpExit;
+        Integer valSize=(Integer) aThis.CL.visit(this,frame);
+        if(valSize==1){
+            emit(Machine.CALLop,Machine.SBr,Machine.PBr,Machine.eqDisplacement);
+            jumpAbort=nextInstrAddr;
+            emit(Machine.JUMPIFop,Machine.falseRep,Machine.CBr,0);
+            aThis.C.visit(this, frame);
+            aDirecciones.add(nextInstrAddr);
+            emit(Machine.JUMPop,0,Machine.CBr,0);
+            patch(jumpAbort,nextInstrAddr);
+            emit(Machine.POPop,0,0,valSize);
+        }
+        return null;
+        }
 
     @Override
     public Object visitElseCase(ElseCase aThis, Object o) {
-        
-        
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
+            aThis.C1.visit(this, o);
+            return null;
+            
+   }
 
     @Override
     public Object visitSCase(SCase aThis, Object o) {
         
+        aThis.C1.visit(this, o);
+        aThis.C2.visit(this, o);
+        for(Integer i: aDirecciones){
+            patch(i,nextInstrAddr); 
+        }
+        return null;
         
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     //This code is the same as sequential declaration because the private validation happens in contextual analisis
@@ -1552,6 +1591,7 @@ public final class Encoder implements Visitor {
         Integer valSize = (Integer) aThis.type.visit(this, null);
         emit(Machine.LOADLop, 0, 0, aThis.CL.spelling.charAt(1));
         return valSize;
+        
         
     }  
 
